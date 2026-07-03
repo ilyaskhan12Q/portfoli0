@@ -84,11 +84,17 @@ export const AudioProvider = ({ children }) => {
             'otwarciedrzwi': '/sounds/otwarciedrzwi.mp3',   // Otwarcie głównych/bocznych drzwi
             'zamknieciedrzwi': '/sounds/zamknieciedrzwi.mp3' // Zamykanie drzwi
         };
-        const path = soundPaths[soundName] || `/sounds/${soundName}.mp3`;
+               const path = soundPaths[soundName] || `/sounds/${soundName}.mp3`;
+
+        // Resolve path with base URL for GitHub Pages
+        const base = import.meta.env.BASE_URL || '/';
+        const resolvedPath = path.startsWith('/') && !path.startsWith(base)
+            ? `${base}${path.slice(1)}`
+            : path;
 
         // In "simulation mode" or if file missing, this might error.
         // We'll trust the browser to handle 404s without crashing JS.
-        const audio = new Audio(path);
+        const audio = new Audio(resolvedPath);
 
         // Store metadata
         audio.loop = loop;

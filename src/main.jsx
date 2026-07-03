@@ -1,5 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { DefaultLoadingManager } from 'three'
+
+// Intercept Three.js loading to prepending the base URL for GitHub Pages
+const base = import.meta.env.BASE_URL || '/';
+DefaultLoadingManager.setURLModifier((url) => {
+  if (url.startsWith('/') && !url.startsWith(base)) {
+    return `${base}${url.slice(1)}`;
+  }
+  return url;
+});
+
 import App from './App.jsx'
 
 // --- Console Signature for Awwwards Judges ---

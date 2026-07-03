@@ -43,8 +43,12 @@ import { TextureLoader } from 'three';
 // Standard Browser-level Image Preloader (for <img> tags)
 const preloadBrowserImage = (path) => {
   if (typeof window === 'undefined') return;
+  const base = import.meta.env.BASE_URL || '/';
+  const cleanPath = path.startsWith('/') && !path.startsWith(base)
+    ? `${base}${path.slice(1)}`
+    : path;
   const img = new Image();
-  img.src = path;
+  img.src = cleanPath;
 };
 
 const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
