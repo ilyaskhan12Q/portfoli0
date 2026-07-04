@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
 
@@ -124,7 +124,7 @@ export const usePaintMaterial = (options = {}) => {
             }
             `
         );
-    }, [uniformsData]);
+    }, [uniformsData, dirX, dirY, dirZ, startDist, endDist, noiseComponent1, noiseComponent2]);
 
     // Animate method to trigger the transition
     const animatePaint = (delay = 0, duration = 2.5) => {

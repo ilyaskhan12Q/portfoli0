@@ -40,7 +40,7 @@ const RoomWarmup = ({ onWarmupComplete, isLowTier }) => {
 
             const finishWarmup = () => {
                 const warmupDuration = ((performance.now() - warmupStart.current) / 1000).toFixed(2);
-                // console.info(`🔥 GPU/Shader Warmup Complete: ${warmupDuration}s ${isLowTier ? '(Bypassed for LOW tier)' : ''}`);
+                console.info(`🔥 GPU/Shader Warmup Complete: ${warmupDuration}s ${isLowTier ? '(Bypassed for LOW tier)' : ''}`);
                 
                 requestAnimationFrame(() => {
                     setIsDone(true);

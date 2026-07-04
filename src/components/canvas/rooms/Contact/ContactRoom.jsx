@@ -1,8 +1,7 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text, PositionalAudio } from '@react-three/drei';
 import * as THREE from 'three';
-import gsap from 'gsap';
 import MessagePaper from './MessagePaper';
 import SocialBarrel from './SocialBarrel';
 import { useScene } from '../../../../context/SceneContext';
@@ -24,7 +23,7 @@ const WAVE_LAYERS = 4;
 // ⚙️ AUDIO SETTINGS - TWEAK HERE
 // Edytuj te wartości, aby zmienić głośność i zasięg słyszalności szumu morza
 // ============================================
-export const AUDIO_SETTINGS = {
+const AUDIO_SETTINGS = {
     volume: 2,
     distance: 2,           // Dystans, od którego dźwięk zaczyna cichnąć (refDistance)
     rolloff: 1.2           // Szybkość cichnięcia (rolloffFactor)
@@ -34,7 +33,7 @@ export const AUDIO_SETTINGS = {
 // ⚙️ LATARNIA SETTINGS - TWEAK HERE
 // Edytuj te wartości, aby zmienić pozycję, obrót i wielkość latarni
 // ============================================
-export const LATARNIA_SETTINGS = {
+const LATARNIA_SETTINGS = {
     // Pozycja: [lewo/prawo (X), góra/dół (Y), tył/przód (Z)]
     position: [-10, 5, -20],
 
@@ -49,7 +48,7 @@ export const LATARNIA_SETTINGS = {
 // ⚙️ STATEK SETTINGS - TWEAK HERE
 // Edytuj te wartości, aby zmienić pozycję, obrót i wielkość statku
 // ============================================
-export const STATEK_SETTINGS = {
+const STATEK_SETTINGS = {
     // Pozycja: [lewo/prawo (X), góra/dół (Y), tył/przód (Z)]
     position: [0, 1.6, -15],
 
@@ -80,16 +79,7 @@ const CAMERA_SETTINGS = {
     lerpSpeed: 2.5
 };
 
-// Experience phases
-const PHASE = {
-    ENTERING: 'entering',      // Camera entering room, looking at menu
-    LOOKING_DOWN: 'looking_down', // Camera animating to look at dock
-    WRITING: 'writing',        // User writing on paper
-    ROLLING: 'rolling',        // Paper rolling into bottle
-    HOLDING: 'holding',        // Camera holding bottle, looking at sea
-    THROWING: 'throwing',      // Bottle being thrown
-    DONE: 'done'               // Bottle floating away
-};
+
 
 const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
     const { camera } = useThree();
@@ -161,8 +151,6 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
         noiseAxes: 'yz'
     });
 
-    const [isTransitioning, setIsTransitioning] = useState(false);
-
     const wasTeleportedRef = useRef(false);
     useEffect(() => {
         if (isTeleporting) wasTeleportedRef.current = true;
@@ -172,27 +160,20 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
         if (showRoom && !isWarmup) {
             if (wasTeleportedRef.current || isTeleporting) {
                 uniformsData.uPaintProgress.value = 1.0;
-                setIsTransitioning(false);
             } else {
-                setIsTransitioning(true);
                 resetPaint();
                 animatePaint(0.2, 2.5);
-                setTimeout(() => {
-                    setIsTransitioning(false);
-                }, 2700);
             }
         } else {
             uniformsData.uPaintProgress.value = 1.0;
         }
-    }, [showRoom, isWarmup, isTeleporting]);
+    }, [showRoom, isWarmup, isTeleporting, animatePaint, resetPaint, uniformsData.uPaintProgress]);
 
     // Track if we've signaled ready
     const hasSignaledReady = useRef(false);
     const frameCount = useRef(0);
     const FRAMES_TO_WAIT = 5;
 
-    // Phase state
-    const [currentPhase, setCurrentPhase] = useState(PHASE.ENTERING);
     const [showSelection, setShowSelection] = useState(true);
 
     const hasAnimatedDown = useRef(false);
@@ -222,7 +203,6 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
             targetRotX.current = 0;
             targetRotY.current = 0;
             targetRotZ.current = 0;
-            setCurrentPhase(PHASE.ENTERING);
             setShowSelection(true); // Reset selection menu
         }
     }, [isTeleporting]);
@@ -239,13 +219,12 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
             hasExitTriggered.current = false;
             if (hasAnimatedDown.current) {
                 hasAnimatedDown.current = false;
-                setCurrentPhase(PHASE.ENTERING);
                 targetRotX.current = 0;
                 targetRotZ.current = 0;
                 setShowSelection(true);
             }
         }
-    }, [hasSignaledReady.current, showRoom, camera]);
+    }, [showRoom, camera]);
 
     const handleMailSelect = () => {
         setShowSelection(false);
@@ -259,9 +238,6 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
         targetRotY.current = camera.rotation.y;
         targetRotZ.current = camera.rotation.z;
 
-        // Start sequence directly
-        setCurrentPhase(PHASE.LOOKING_DOWN);
-
         // 1. SET X (Looking down)
         targetRotX.current = CAMERA_SETTINGS.lookDownAngle;
 
@@ -274,11 +250,6 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
         if (CAMERA_SETTINGS.forceStraightZ !== null) {
             targetRotZ.current = CAMERA_SETTINGS.forceStraightZ;
         }
-
-        // Phase transition
-        setTimeout(() => {
-            setCurrentPhase(PHASE.WRITING);
-        }, 1500);
     };
 
     // Frame Loop
@@ -499,8 +470,7 @@ const ContactRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
             <group visible={!showSelection}>
                 <MessagePaper
                     position={[0, 0.07, 2]}
-                    onSend={(data) => {
-                        // console.log('📬 Contact form submitted:', data);
+                    onSend={() => {
                         unlockAchievement('contact_submit');
                     }}
                 />

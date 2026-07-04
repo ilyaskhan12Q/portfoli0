@@ -30,7 +30,7 @@ const STUDIO_PAINT_CONFIG = {
 // ⚙️ AUDIO SETTINGS - TWEAK HERE
 // Edytuj te wartości, aby zmienić głośność i zasięg słyszalności szumu monitorów
 // ============================================
-export const AUDIO_SETTINGS = {
+const AUDIO_SETTINGS = {
     volume: 1,
     distance: 2,
     rolloff: 1.0
@@ -122,8 +122,6 @@ const StudioRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
     // ===== PAINT TRANSITION (top-to-bottom) =====
     const { onBeforeCompile: paintOnBeforeCompile, animatePaint, resetPaint, uniformsData: paintUniforms, updateRoomOrigin } = usePaintMaterial(STUDIO_PAINT_CONFIG);
 
-    const [isTransitioning, setIsTransitioning] = useState(false);
-
     const wasTeleportedRef = useRef(false);
     useEffect(() => {
         if (isTeleporting) wasTeleportedRef.current = true;
@@ -133,19 +131,14 @@ const StudioRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
         if (showRoom && !isWarmup) {
             if (wasTeleportedRef.current || isTeleporting) {
                 paintUniforms.uPaintProgress.value = 1.0;
-                setIsTransitioning(false);
             } else {
-                setIsTransitioning(true);
                 resetPaint();
                 animatePaint(0.2, 2.5);
-                setTimeout(() => {
-                    setIsTransitioning(false);
-                }, 2700);
             }
         } else {
             paintUniforms.uPaintProgress.value = 1.0;
         }
-    }, [showRoom, isWarmup, isTeleporting]);
+    }, [showRoom, isWarmup, isTeleporting, animatePaint, paintUniforms, resetPaint]);
 
     const latestContent = getLatestContent();
 
@@ -438,21 +431,7 @@ const StudioRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
             }
         });
 
-    }, [isAnimating, camera, responsiveParams, openOverlay]);
-
-    // Trigger camera return ONLY when overlay is explicitly closed
-    // We use a ref to track if overlay was previously open to avoid initial race conditions
-    const prevOverlayContent = useRef(null);
-
-    useEffect(() => {
-        // If it WAS open (prev) and is NOW closed (null) AND we are viewing a monitor -> Return camera
-        if (prevOverlayContent.current && !overlayContent && selectedMonitor && !isAnimating) {
-            handleReturnCamera();
-        }
-
-        // Update ref for next render
-        prevOverlayContent.current = overlayContent;
-    }, [overlayContent, selectedMonitor, isAnimating]);
+    }, [isAnimating, camera, responsiveParams, openOverlay, unlockAchievement]);
 
     const handleReturnCamera = useCallback(() => {
         setIsAnimating(true);
@@ -475,6 +454,20 @@ const StudioRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
             setSelectedMonitor(null);
         }
     }, [camera]);
+
+    // Trigger camera return ONLY when overlay is explicitly closed
+    // We use a ref to track if overlay was previously open to avoid initial race conditions
+    const prevOverlayContent = useRef(null);
+
+    useEffect(() => {
+        // If it WAS open (prev) and is NOW closed (null) AND we are viewing a monitor -> Return camera
+        if (prevOverlayContent.current && !overlayContent && selectedMonitor && !isAnimating) {
+            handleReturnCamera();
+        }
+
+        // Update ref for next render
+        prevOverlayContent.current = overlayContent;
+    }, [overlayContent, selectedMonitor, isAnimating, handleReturnCamera]);
 
     // Cleaned up old listener effect that is now handled by the global effect above
 
@@ -589,7 +582,7 @@ const MonitorBlock = memo(({ item, meshRef, isSelected, onMonitorClick, disabled
     const matRef3 = useRef(); // -Y bottom
     const matRef4 = useRef(); // +Z front
     const matRef5 = useRef(); // -Z back
-    const matRefs = [matRef0, matRef1, matRef2, matRef3, matRef4, matRef5];
+    const matRefs = useMemo(() => [matRef0, matRef1, matRef2, matRef3, matRef4, matRef5], []);
 
     // Check platform types
     const isBlogMonitor = item.platform === 'blog';
@@ -758,7 +751,7 @@ const MonitorBlock = memo(({ item, meshRef, isSelected, onMonitorClick, disabled
                 if (paintedBoxRef.current) paintedBoxRef.current.visible = false;
             });
         }
-    }, [faceConfig, isSelected, isTouch]);
+    }, [faceConfig, isSelected, isTouch, matRefs]);
 
     // React to purely external changes (e.g., overlay closes and isSelected becomes false)
     useEffect(() => {

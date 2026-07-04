@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 const AudioContext = createContext({
@@ -84,7 +85,7 @@ export const AudioProvider = ({ children }) => {
             'otwarciedrzwi': '/sounds/otwarciedrzwi.mp3',   // Otwarcie głównych/bocznych drzwi
             'zamknieciedrzwi': '/sounds/zamknieciedrzwi.mp3' // Zamykanie drzwi
         };
-               const path = soundPaths[soundName] || `/sounds/${soundName}.mp3`;
+        const path = soundPaths[soundName] || `/sounds/${soundName}.mp3`;
 
         // Resolve path with base URL for GitHub Pages
         const base = import.meta.env.BASE_URL || '/';
@@ -136,7 +137,7 @@ export const AudioProvider = ({ children }) => {
                 audio.currentTime = 0;
                 delete activeSounds.current[soundName];
             },
-            fade: (duration = 1000) => {
+            fade: () => {
                 // For now just stop
                 audio.pause();
                 delete activeSounds.current[soundName];

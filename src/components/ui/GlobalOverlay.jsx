@@ -8,7 +8,6 @@ gsap.registerPlugin(TextPlugin);
 
 const GlobalOverlay = () => {
     const { overlayContent, closeOverlay } = useScene();
-    const [isVisible, setIsVisible] = useState(false);
     const [animateOpen, setAnimateOpen] = useState(false);
 
     // Check if mobile based on window width
@@ -22,7 +21,6 @@ const GlobalOverlay = () => {
 
     useEffect(() => {
         if (overlayContent) {
-            setIsVisible(true);
             // Delay animation to allow DOM mount and initial 'closed' layout paint
             const delayAnim = setTimeout(() => {
                 setAnimateOpen(true);
@@ -30,9 +28,6 @@ const GlobalOverlay = () => {
             return () => clearTimeout(delayAnim);
         } else {
             setAnimateOpen(false);
-            // Wait for exit animation (should match transition duration ~0.6-1s)
-            const timer = setTimeout(() => setIsVisible(false), 800);
-            return () => clearTimeout(timer);
         }
     }, [overlayContent]);
 
@@ -69,14 +64,21 @@ const GlobalOverlay = () => {
 };
 
 const ContentCard = ({ content, isOpen, onClose, isMobile }) => {
-    if (!content) return null;
-
-    const label = content.platformConfig?.label || 'Content';
-
     // GSAP TextPlugin typing effect for description
     const descriptionRef = useRef(null);
+
+    // Custom scrollbar state
+    const scrollContainerRef = useRef(null);
+    const trackRef = useRef(null);
+    const thumbRef = useRef(null);
+    const isDragging = useRef(false);
+    const dragStartY = useRef(0);
+    const dragStartScroll = useRef(0);
+    const [scrollThumbTop, setScrollThumbTop] = useState(0);
+    const [showScrollbar, setShowScrollbar] = useState(false);
+
     useEffect(() => {
-        if (isOpen && content.description && descriptionRef.current && content.layout !== 'certificate_grid') {
+        if (isOpen && content?.description && descriptionRef.current && content?.layout !== 'certificate_grid') {
             gsap.killTweensOf(descriptionRef.current);
             gsap.fromTo(descriptionRef.current,
                 { text: "" },
@@ -89,16 +91,6 @@ const ContentCard = ({ content, isOpen, onClose, isMobile }) => {
             );
         }
     }, [isOpen, content]);
-
-    // Custom scrollbar state
-    const scrollContainerRef = useRef(null);
-    const trackRef = useRef(null);
-    const thumbRef = useRef(null);
-    const isDragging = useRef(false);
-    const dragStartY = useRef(0);
-    const dragStartScroll = useRef(0);
-    const [scrollThumbTop, setScrollThumbTop] = useState(0);
-    const [showScrollbar, setShowScrollbar] = useState(false);
 
     // Update thumb position based on scroll
     const updateThumbPosition = useCallback(() => {
@@ -192,6 +184,10 @@ const ContentCard = ({ content, isOpen, onClose, isMobile }) => {
         const { scrollHeight, clientHeight } = el;
         el.scrollTop = ratio * (scrollHeight - clientHeight);
     }, []);
+
+    if (!content) return null;
+
+    const label = content.platformConfig?.label || 'Content';
 
     const handleBackdropClick = (e) => {
         // Only close if clicking the wrapper itself (which acts as backdrop here)
