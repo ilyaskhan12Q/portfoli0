@@ -168,7 +168,7 @@ const PaperMaterial = forwardRef(({ color = '#e0e0e0', roughness = 0.6, map, sid
         if (props.mapPainted && shader.uniforms.mapPainted) {
             shader.uniforms.mapPainted.value = props.mapPainted;
         }
-    }, [props.mapBack, props.mapPainted]);
+    }, [props.mapBack, props.mapPainted, paintProgress, roomOrigin]);
 
     useImperativeHandle(ref, () => ({
         // Getter/Setter for bend

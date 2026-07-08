@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useEffect, forwardRef, useImperativeHandle, memo } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { Text, useTexture, Float, PositionalAudio } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -20,13 +20,13 @@ const _tempScale = new THREE.Vector3();
 // ⚙️ AUDIO SETTINGS - TWEAK HERE
 // Edytuj te wartości, aby zmienić głośność i zasięg słyszalności szumu miasta
 // ============================================
-export const AUDIO_SETTINGS = {
+const AUDIO_SETTINGS = {
     volume: 0.6,
     distance: 2,
     rolloff: 1.5
 };
 
-export const GALLERY_INTERACTION_AUDIO_SETTINGS = {
+const GALLERY_INTERACTION_AUDIO_SETTINGS = {
     volume: 0.6,      // Volume for the paper clicking sound
     distance: 2,      // Reference distance for spatial audio before it starts dropping off
     rolloff: 2        // How fast the sound fades away (exponential)
@@ -85,7 +85,7 @@ const BIRD_HEIGHT = 0.35;
 const RIGHT_CROP_AMOUNT = 0.2;
 
 const GalleryRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
-    const { openOverlay, isTeleporting } = useScene();
+    const { isTeleporting } = useScene();
     const { showTutorial, unlockAchievement, hidePopup } = useAchievements();
     const { globalVolume, isMuted } = useAudio();
     const effectiveVolume = isMuted ? 0 : AUDIO_SETTINGS.volume * globalVolume;
@@ -98,7 +98,6 @@ const GalleryRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
     }, [effectiveVolume]);
 
     const groupRef = useRef();
-    const [scrollOffset, setScrollOffset] = useState(0);
     const targetScroll = useRef(0);
     const currentScroll = useRef(0);
     const [selectedCard, setSelectedCard] = useState(null);
@@ -146,7 +145,7 @@ const GalleryRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
             // Immediately reveal for warmup or hide if not showing
             uniformsData.uPaintProgress.value = 1.0;
         }
-    }, [showRoom, isWarmup, isTeleporting]);
+    }, [showRoom, isWarmup, isTeleporting, animatePaint, resetPaint, uniformsData]);
 
     const handleCardClick = async (clickedIndex) => {
         if (globalIsAnimating || isTransitioning) return;
@@ -286,7 +285,7 @@ const GalleryRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
                 techStack: techStack
             };
         });
-    }, [projectTextures, backTextureRaw, overlayTextureRaw]);
+    }, [projectTextures, backTextureRaw, overlayTextureRaw, paintedTextures, canHover]);
 
     // Function to scroll to a specific project index
     const scrollToIndex = (index, onComplete) => {
@@ -348,7 +347,7 @@ const GalleryRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
         });
 
         return () => scrollObserver.kill();
-    }, [showRoom, selectedCard, globalIsAnimating]);
+    }, [showRoom, selectedCard, globalIsAnimating, isTransitioning]);
 
     useFrame((state, delta) => {
         currentScroll.current = THREE.MathUtils.lerp(currentScroll.current, targetScroll.current, delta * 5);
@@ -510,7 +509,6 @@ const GalleryRoom = ({ showRoom, onReady, isExiting, isWarmup }) => {
                             clothespinTexture={clothespinTexture}
                             total={PROJECT_COUNT}
                             currentScroll={currentScroll}
-                            materials={materials}
                             curve={curve}
                             isSelected={selectedCard === i}
                             scrollToIndex={scrollToIndex}
@@ -682,7 +680,7 @@ const FlyingBird = ({ texture }) => {
 };
 
 // Sub-component for individual project cards
-const ProjectCard = memo(forwardRef(({ index, project, clothespinTexture, currentScroll, materials, curve, isSelected, scrollToIndex, onClick, isMobile, isTransitioning, paintProgress, roomOrigin }, ref) => {
+const ProjectCard = memo(forwardRef(({ index, project, clothespinTexture, currentScroll, curve, isSelected, scrollToIndex, onClick, isMobile, isTransitioning, paintProgress, roomOrigin }, ref) => {
     const cardRef = useRef();
     const paperRef = useRef(); // Ref for the moving part (Paper)
     const materialRef = useRef();
@@ -697,7 +695,6 @@ const ProjectCard = memo(forwardRef(({ index, project, clothespinTexture, curren
     const [hovered, setHovered] = useState(false);
     const [btnHovered, setBtnHovered] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);  // True ONLY during flip animation
-    const [isScrolling, setIsScrolling] = useState(false);  // True during scroll phase
 
     // Random sway properties
     const swaySpeed = useRef(Math.random() * 0.2 + 0.3); // Slower sway speed
@@ -795,9 +792,7 @@ const ProjectCard = memo(forwardRef(({ index, project, clothespinTexture, curren
         },
         openCard: () => {
             return new Promise((resolve) => {
-                setIsScrolling(true);
                 scrollToIndex(index, () => {
-                    setIsScrolling(false);
                     setIsAnimating(true);
                     playPaperSound();
 

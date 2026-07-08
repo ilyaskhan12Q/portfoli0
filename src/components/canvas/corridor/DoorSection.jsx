@@ -6,7 +6,6 @@ import gsap from 'gsap';
 import RoomInterior from './RoomInterior';
 import '../shaders/RevealMaterial'; // Registers alpha-discard reveal shader
 import { useScene } from '../../../context/SceneContext';
-import { useAchievements } from '../../../context/AchievementsContext';
 import { useAudio } from '../../../context/AudioManager';
 import { isTouchDevice } from '../../../utils/deviceDetect';
 
@@ -30,6 +29,9 @@ const WALL_DX = WALL_X_OUTER - WALL_X_INNER; // 1.8
 const WALL_DZ = DOOR_Z_SPAN; // 4
 const WALL_LENGTH = Math.sqrt(WALL_DX * WALL_DX + WALL_DZ * WALL_DZ);
 const BASE_WALL_ANGLE = Math.atan2(WALL_DX, WALL_DZ); // Sawtooth angle (~24 degrees)
+
+const DOOR_BOARD_WIDTH = (WALL_LENGTH - 1.1) / 2;
+const NATURAL_TILE_W = (1582 / 94) * 0.15; // = 2.524 units per natural tile
 
 // Camera look-at angle when aligning with door (adjust this to fix alignment)
 // Math.PI * 0.33 is ~60 degrees
@@ -69,9 +71,7 @@ const DoorSection = ({
     side = 'left',
     label,
     roomId, // ID for context updates (gallery, studio, etc)
-    icon,
     onEnter,
-    autoCloseDelay = 3000,
     enterDistance = 8, // Default fly-through distance
     setCameraOverride, // Function to take control of camera from hook
     segmentIndex
@@ -91,7 +91,7 @@ const DoorSection = ({
     const [isInsideRoom, setIsInsideRoom] = useState(false);
     const [isTiltLocked, setIsTiltLocked] = useState(false); // Lock tilt when entering room
     const [shouldRenderRoom, setShouldRenderRoom] = useState(false); // Lazy loading state
-    const [roomReady, setRoomReady] = useState(false); // Room signaled it's ready
+    const [, setRoomReady] = useState(false); // Room signaled it's ready
     const { camera } = useThree();
     const closeTimerRef = useRef(null);
     const loadTimeoutRef = useRef(null); // Ref for the room loading fallback timeout
@@ -100,7 +100,6 @@ const DoorSection = ({
     const {
         currentRoom, // We need to know if the global room changed (teleportation)
         exitRequested,
-        clearExitRequest,
         exitRoom: contextExitRoom,
         enterRoom,
         pendingDoorClick,
@@ -109,8 +108,6 @@ const DoorSection = ({
         signalRoomReady,
         teleportPhase // We need this to delay reset until curtain is closed
     } = useScene();
-
-    const { unlockAchievement } = useAchievements();
     const { globalVolume, isMuted } = useAudio();
 
     // Audio Refs for 3D positional sound
@@ -130,16 +127,6 @@ const DoorSection = ({
         return null;
     }, [label, roomId]);
 
-    // Listen for pending door click (auto-click after teleport)
-    useEffect(() => {
-        // Only trigger for segment 0 doors (closest to start) and matching ID
-        // We assume teleport always goes to segment 0
-        const isSegment0 = segmentIndex === 0;
-
-        if (pendingDoorClick && pendingDoorClick === doorId && isSegment0 && !isOpen && !isAnimating) {
-            handleClick({ stopPropagation: () => { }, isTeleport: true }); // Trigger click simulation with TELEPORT flag
-        }
-    }, [pendingDoorClick, doorId, segmentIndex, isOpen, isAnimating]);
 
     // --- SILENT RESET FOR TELEPORTATION ---
     // If a teleport starts (users clicks map), and we are inside THIS room,
@@ -228,15 +215,13 @@ const DoorSection = ({
     baseboardTexture.colorSpace = THREE.SRGBColorSpace;
 
     // Pre-create baseboard textures via useMemo (same pattern as legTexture above)
-    const doorBoardWidth = (WALL_LENGTH - 1.1) / 2;
-    const NATURAL_TILE_W = (1582 / 94) * 0.15; // = 2.524 units per natural tile
     const doorBbTexLeft = useMemo(() => {
         const tex = baseboardTexture.clone();
         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
         tex.rotation = 0; // Reset rotation (shared texture may have PI/2 from threshold)
         tex.offset.set(0, 0);
         tex.needsUpdate = true;
-        tex.repeat.set(doorBoardWidth / NATURAL_TILE_W, 1);
+        tex.repeat.set(DOOR_BOARD_WIDTH / NATURAL_TILE_W, 1);
         return tex;
     }, [baseboardTexture]);
 
@@ -246,7 +231,7 @@ const DoorSection = ({
         tex.rotation = 0; // Reset rotation (shared texture may have PI/2 from threshold)
         tex.offset.set(0, 0);
         tex.needsUpdate = true;
-        tex.repeat.set(doorBoardWidth / NATURAL_TILE_W, 1);
+        tex.repeat.set(DOOR_BOARD_WIDTH / NATURAL_TILE_W, 1);
         return tex;
     }, [baseboardTexture]);
 
@@ -377,11 +362,157 @@ const DoorSection = ({
     });
 
     useEffect(() => {
+        const timer = closeTimerRef.current;
+        const loadTimeout = loadTimeoutRef.current;
         return () => {
-            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-            if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+            if (timer) clearTimeout(timer);
+            if (loadTimeout) clearTimeout(loadTimeout);
         };
     }, []);
+
+    const closeDoor = useCallback((onDoorClosed) => {
+        if (!doorRef.current || !isOpen) return;
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
+        setIsAnimating(true);
+
+        if (closeAudioRef.current) {
+            setTimeout(() => {
+                const vol = isMuted ? 0 : DOOR_AUDIO_SETTINGS.closeVolume * globalVolume;
+                if (closeAudioRef.current) {
+                    closeAudioRef.current.setVolume(vol);
+                    if (closeAudioRef.current.isPlaying) closeAudioRef.current.stop();
+                    closeAudioRef.current.play();
+                }
+            }, DOOR_AUDIO_SETTINGS.closeDelay * 1000);
+        }
+
+        // Reset handle
+        if (handleRef.current) {
+            gsap.to(handleRef.current.rotation, {
+                z: 0,
+                duration: 0.2,
+                ease: 'power2.out'
+            });
+        }
+
+        // Reverse brush-stroke reveal (un-paint the door)
+        if (doorMaterialRef.current) {
+            gsap.to(doorMaterialRef.current, {
+                uProgress: 0.0,
+                duration: 0.6,
+                ease: 'power2.out',
+                overwrite: true
+            });
+        }
+        if (handleMaterialRef.current) {
+            gsap.to(handleMaterialRef.current, {
+                uProgress: 0.0,
+                duration: 0.6,
+                ease: 'power2.out',
+                overwrite: true
+            });
+        }
+        // Hide painted layers after animation
+        if (handleHideDelayRef.current) handleHideDelayRef.current.kill();
+        handleHideDelayRef.current = gsap.delayedCall(0.65, () => {
+            if (handlePaintedRef.current) handlePaintedRef.current.visible = false;
+            if (doorPaintedRef.current) doorPaintedRef.current.visible = false;
+        });
+
+        gsap.to(doorRef.current.rotation, {
+            y: 0,
+            duration: 0.6,
+            ease: 'power2.in',
+            onComplete: () => {
+                setIsOpen(false);
+                setIsAnimating(false);
+                // Call optional completion callback
+                onDoorClosed?.();
+            }
+        });
+    }, [isOpen, isMuted, globalVolume]);
+
+    const openDoor = useCallback((fastMode = false) => {
+        if (!doorRef.current) return;
+
+        setIsOpen(true);
+        const openAngle = side === 'left' ? Math.PI * 0.6 : -Math.PI * 0.6;
+
+        if (!fastMode && openAudioRef.current) {
+            const vol = isMuted ? 0 : DOOR_AUDIO_SETTINGS.openVolume * globalVolume;
+            openAudioRef.current.setVolume(vol);
+            if (openAudioRef.current.isPlaying) openAudioRef.current.stop();
+            openAudioRef.current.play();
+        }
+
+        // FAST MODE: Ultra-fast durations for teleport entry
+        const handleDuration = fastMode ? 0.01 : 0.15;
+        const doorDuration = fastMode ? 0.01 : 0.7;
+        const flyDuration = fastMode ? 0.01 : 1.5;
+
+        // Animate handle down first
+        if (handleRef.current) {
+            gsap.to(handleRef.current.rotation, {
+                z: side === 'left' ? 0.4 : -0.4,
+                duration: handleDuration,
+                ease: fastMode ? 'none' : 'power2.out'
+            });
+        }
+
+        gsap.to(doorRef.current.rotation, {
+            y: openAngle,
+            duration: doorDuration,
+            ease: fastMode ? 'none' : 'power2.out',
+            onComplete: () => {
+                // Door is open, now fly camera through the door
+                // Get the direction the camera is looking AT THE START
+                const direction = new THREE.Vector3();
+                camera.getWorldDirection(direction);
+
+                const flyDistance = enterDistance; // Fly through short vestibule (3) + into room
+
+                // Calculate TARGET position BEFORE animating (so flight path is straight)
+                const targetX = camera.position.x + direction.x * flyDistance;
+                const targetZ = camera.position.z + direction.z * flyDistance;
+
+                // STEP 1: Fly camera forward in a STRAIGHT LINE
+                gsap.to(camera.position, {
+                    x: targetX,
+                    z: targetZ,
+                    duration: flyDuration,
+                    ease: fastMode ? 'none' : 'power2.inOut',
+                    onComplete: () => {
+                        // Save position AFTER flight
+                        roomEntryState.current = {
+                            x: camera.position.x,
+                            y: camera.position.y,
+                            z: camera.position.z,
+                            rotationY: camera.rotation.y
+                        };
+
+                        // NO ROTATION needed - we are already looking perpendicular to corridor
+                        // Just mark as inside
+                        setIsAnimating(false);
+                        setIsInsideRoom(true);
+
+                        // Defer context update exactly 250ms to strictly avoid any
+                        // stutter during the very last frames of the GSAP animation loop.
+                        setTimeout(() => {
+                            enterRoom(doorId); // Use ID ('gallery') not label ('THE GALLERY')
+                            onEnter?.();
+
+                            // FAST TELEPORT: Signal that room is ready - this opens the paper
+                            if (fastMode) {
+                                signalRoomReady();
+                            }
+                        }, 250);
+                    }
+                });
+            }
+        });
+    }, [side, onEnter, camera, enterRoom, doorId, signalRoomReady, isMuted, globalVolume, enterDistance]);
 
     const handleClick = useCallback((e) => {
         // e might be null or synthetic from teleport
@@ -523,87 +654,18 @@ const DoorSection = ({
                 }, 8000);
             }
         });
-    }, [camera, side, isOpen, isAnimating, setCameraOverride, isFastTeleport]);
+    }, [camera, side, isOpen, isAnimating, setCameraOverride, isFastTeleport, openDoor, closeDoor, position, label]);
 
-    const openDoor = useCallback((fastMode = false) => {
-        if (!doorRef.current) return;
+    // Listen for pending door click (auto-click after teleport)
+    useEffect(() => {
+        // Only trigger for segment 0 doors (closest to start) and matching ID
+        // We assume teleport always goes to segment 0
+        const isSegment0 = segmentIndex === 0;
 
-        setIsOpen(true);
-        const openAngle = side === 'left' ? Math.PI * 0.6 : -Math.PI * 0.6;
-
-        if (!fastMode && openAudioRef.current) {
-            const vol = isMuted ? 0 : DOOR_AUDIO_SETTINGS.openVolume * globalVolume;
-            openAudioRef.current.setVolume(vol);
-            if (openAudioRef.current.isPlaying) openAudioRef.current.stop();
-            openAudioRef.current.play();
+        if (pendingDoorClick && pendingDoorClick === doorId && isSegment0 && !isOpen && !isAnimating) {
+            handleClick({ stopPropagation: () => { }, isTeleport: true }); // Trigger click simulation with TELEPORT flag
         }
-
-        // FAST MODE: Ultra-fast durations for teleport entry
-        const handleDuration = fastMode ? 0.01 : 0.15;
-        const doorDuration = fastMode ? 0.01 : 0.7;
-        const flyDuration = fastMode ? 0.01 : 1.5;
-
-        // Animate handle down first
-        if (handleRef.current) {
-            gsap.to(handleRef.current.rotation, {
-                z: side === 'left' ? 0.4 : -0.4,
-                duration: handleDuration,
-                ease: fastMode ? 'none' : 'power2.out'
-            });
-        }
-
-        gsap.to(doorRef.current.rotation, {
-            y: openAngle,
-            duration: doorDuration,
-            ease: fastMode ? 'none' : 'power2.out',
-            onComplete: () => {
-                // Door is open, now fly camera through the door
-                // Get the direction the camera is looking AT THE START
-                const direction = new THREE.Vector3();
-                camera.getWorldDirection(direction);
-
-                const flyDistance = enterDistance; // Fly through short vestibule (3) + into room
-
-                // Calculate TARGET position BEFORE animating (so flight path is straight)
-                const targetX = camera.position.x + direction.x * flyDistance;
-                const targetZ = camera.position.z + direction.z * flyDistance;
-
-                // STEP 1: Fly camera forward in a STRAIGHT LINE
-                gsap.to(camera.position, {
-                    x: targetX,
-                    z: targetZ,
-                    duration: flyDuration,
-                    ease: fastMode ? 'none' : 'power2.inOut',
-                    onComplete: () => {
-                        // Save position AFTER flight
-                        roomEntryState.current = {
-                            x: camera.position.x,
-                            y: camera.position.y,
-                            z: camera.position.z,
-                            rotationY: camera.rotation.y
-                        };
-
-                        // NO ROTATION needed - we are already looking perpendicular to corridor
-                        // Just mark as inside
-                        setIsAnimating(false);
-                        setIsInsideRoom(true);
-
-                        // Defer context update exactly 250ms to strictly avoid any
-                        // stutter during the very last frames of the GSAP animation loop.
-                        setTimeout(() => {
-                            enterRoom(doorId); // Use ID ('gallery') not label ('THE GALLERY')
-                            onEnter?.();
-
-                            // FAST TELEPORT: Signal that room is ready - this opens the paper
-                            if (fastMode) {
-                                signalRoomReady();
-                            }
-                        }, 250);
-                    }
-                });
-            }
-        });
-    }, [side, onEnter, camera, enterRoom, doorId, signalRoomReady]);
+    }, [pendingDoorClick, doorId, segmentIndex, isOpen, isAnimating, handleClick]);
 
     // Handle room ready callback - open door when room is fully loaded
     // Use ref to prevent multiple calls (state might not update fast enough)
@@ -728,7 +790,7 @@ const DoorSection = ({
                 });
             }
         });
-    }, [isInsideRoom, isAnimating, camera, setCameraOverride, contextExitRoom]);
+    }, [isInsideRoom, isAnimating, camera, setCameraOverride, contextExitRoom, closeDoor]);
 
     // ESC key listener for exiting room
     useEffect(() => {
@@ -753,70 +815,6 @@ const DoorSection = ({
             exitRoom(); // Trigger the exit animation
         }
     }, [exitRequested, isInsideRoom, isAnimating, exitRoom]);
-
-    const closeDoor = useCallback((onDoorClosed) => {
-        if (!doorRef.current || !isOpen) return;
-        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-        if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
-
-        setIsAnimating(true);
-
-        if (closeAudioRef.current) {
-            setTimeout(() => {
-                const vol = isMuted ? 0 : DOOR_AUDIO_SETTINGS.closeVolume * globalVolume;
-                if (closeAudioRef.current) {
-                    closeAudioRef.current.setVolume(vol);
-                    if (closeAudioRef.current.isPlaying) closeAudioRef.current.stop();
-                    closeAudioRef.current.play();
-                }
-            }, DOOR_AUDIO_SETTINGS.closeDelay * 1000);
-        }
-
-        // Reset handle
-        if (handleRef.current) {
-            gsap.to(handleRef.current.rotation, {
-                z: 0,
-                duration: 0.2,
-                ease: 'power2.out'
-            });
-        }
-
-        // Reverse brush-stroke reveal (un-paint the door)
-        if (doorMaterialRef.current) {
-            gsap.to(doorMaterialRef.current, {
-                uProgress: 0.0,
-                duration: 0.6,
-                ease: 'power2.out',
-                overwrite: true
-            });
-        }
-        if (handleMaterialRef.current) {
-            gsap.to(handleMaterialRef.current, {
-                uProgress: 0.0,
-                duration: 0.6,
-                ease: 'power2.out',
-                overwrite: true
-            });
-        }
-        // Hide painted layers after animation
-        if (handleHideDelayRef.current) handleHideDelayRef.current.kill();
-        handleHideDelayRef.current = gsap.delayedCall(0.65, () => {
-            if (handlePaintedRef.current) handlePaintedRef.current.visible = false;
-            if (doorPaintedRef.current) doorPaintedRef.current.visible = false;
-        });
-
-        gsap.to(doorRef.current.rotation, {
-            y: 0,
-            duration: 0.6,
-            ease: 'power2.in',
-            onComplete: () => {
-                setIsOpen(false);
-                setIsAnimating(false);
-                // Call optional completion callback
-                onDoorClosed?.();
-            }
-        });
-    }, [isOpen]);
 
     // Handle hover effects
     const handlePointerEnter = () => {
@@ -933,14 +931,8 @@ const DoorSection = ({
     const doorPivotX = side === 'left' ? -doorWidth / 2 : doorWidth / 2;
     const doorMeshX = side === 'left' ? doorWidth / 2 : -doorWidth / 2;
 
-    // Handle position on door (based on texture - handle is on the right side for left doors)
-    const handlePivotX = side === 'left' ? doorWidth * 0.25 : -doorWidth * 0.25;
-
     // Sign texture mapping - now uses a single empty sign texture
     const signTextureUrl = '/textures/corridor/pustatabliczka.webp';
-    const signLegacyRatio = 1.792; // 2752x1536
-    const signHeight = 0.55;
-    const signWidth = signHeight * signLegacyRatio;
     const signTexture = useTexture(signTextureUrl);
 
     return (
@@ -1002,7 +994,7 @@ const DoorSection = ({
 
                 {/* Baseboard (Listwa) Left side of door */}
                 <mesh position={[wallOffsetX - 1.4, -CORRIDOR_HEIGHT / 2 + 0.075, 0.02]}>
-                    <planeGeometry args={[doorBoardWidth, 0.15]} />
+                    <planeGeometry args={[DOOR_BOARD_WIDTH, 0.15]} />
                     <meshBasicMaterial color="#e0e0e0"
                         map={doorBbTexLeft}
                         roughness={0.8}
@@ -1012,7 +1004,7 @@ const DoorSection = ({
 
                 {/* Baseboard (Listwa) Right side of door */}
                 <mesh position={[wallOffsetX + 1.4, -CORRIDOR_HEIGHT / 2 + 0.075, 0.02]}>
-                    <planeGeometry args={[doorBoardWidth, 0.15]} />
+                    <planeGeometry args={[DOOR_BOARD_WIDTH, 0.15]} />
                     <meshBasicMaterial color="#e0e0e0"
                         map={doorBbTexRight}
                         roughness={0.8}

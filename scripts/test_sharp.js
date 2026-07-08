@@ -1,5 +1,4 @@
 import sharp from 'sharp';
-import fs from 'fs';
 
 async function test() {
   const file = 'public/textures/entrance/avatar_window.webp';
