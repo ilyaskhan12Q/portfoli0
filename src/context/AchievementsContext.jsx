@@ -1,5 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useAudio } from './AudioManager';
 import posthog from 'posthog-js';
 
 const AchievementsContext = createContext();
@@ -13,28 +13,26 @@ export const ACHIEVEMENTS = {
     contact_choose: { id: 'contact_choose', label: 'Find a contact method', title: 'Sociable' }
 };
 
+const loadSavedAchievements = () => {
+    try {
+        const saved = localStorage.getItem('ilyas_achievements');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // Wrzucamy do pule, ale ignorujemy 'corridor_enter' żeby tooltip wejściowy zawsze się pojawiał
+            return parsed.filter(id => id !== 'corridor_enter');
+        }
+        return [];
+    } catch {
+        return [];
+    }
+};
+
 export const AchievementsProvider = ({ children }) => {
-    const { playSound } = useAudio();
+    // Load completed achievements from local storage
+    const [completed, setCompleted] = useState(() => loadSavedAchievements());
 
     // Synchronous ref to prevent double-firing on rapid events (like wheel scroll)
-    const completedRef = useRef([]);
-
-    // Load completed achievements from local storage
-    const [completed, setCompleted] = useState(() => {
-        try {
-            const saved = localStorage.getItem('ilyas_achievements');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                // Wrzucamy do pule, ale ignorujemy 'corridor_enter' żeby tooltip wejściowy zawsze się pojawiał
-                const filtered = parsed.filter(id => id !== 'corridor_enter');
-                completedRef.current = [...filtered];
-                return filtered;
-            }
-            return [];
-        } catch (e) {
-            return [];
-        }
-    });
+    const completedRef = useRef(completed);
 
     // Lazy global AudioContext to avoid creating it on every unlock
     const audioCtxRef = useRef(null);
@@ -84,8 +82,8 @@ export const AchievementsProvider = ({ children }) => {
             // Audio is muted by start/stop being commented out, but we still ensure context logic is clean
             // osc.start(ctx.currentTime);
             // osc.stop(ctx.currentTime + 0.5);
-        } catch (err) {
-            // console.warn('Failed to play unlock chime', err);
+        } catch {
+            // console.warn('Failed to play unlock chime');
         }
     }, []);
 

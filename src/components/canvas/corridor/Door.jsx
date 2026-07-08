@@ -1,12 +1,11 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Text, Plane, useTexture } from '@react-three/drei';
+import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { PositionalAudio } from '@react-three/drei';
 import '../shaders/RevealMaterial'; // Registers alpha-discard reveal shader
 import { useAudio } from '../../../../context/AudioManager';
-import { isTouchDevice } from '../../../../utils/deviceDetect';
 
 // Global settings for entrance doors audio
 const ENTRANCE_DOOR_AUDIO_SETTINGS = {
@@ -27,17 +26,8 @@ const Door = ({
     icon,
     color = '#f5f0e6',
     onEnter,
-    autoCloseDelay = 3000,
-    type // Assuming 'type' is a new prop for texture selection
+    autoCloseDelay = 3000
 }) => {
-    // Preload textures
-    // Texture Loader Hook MUST be called indiscriminately to keep React Hooks consistent
-    const textureMap = useTexture(`/textures/corridor/doors/drzwi${type}.webp`);
-    const isTouch = isTouchDevice();
-    const dummyTex = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    const paintedColorMap = useTexture(isTouch ? dummyTex : `/textures/corridor/doors/drzwi${type}_painted.webp`);
-    // Frame
-    const frameMap = useTexture(`/textures/corridor/doors/ramkasingledoors.webp`);
 
     const doorRef = useRef();
     const frameRef = useRef();
@@ -73,31 +63,21 @@ const Door = ({
         };
     }, []);
 
-    const handleClick = useCallback((e) => {
-        e.stopPropagation();
-        if (isAnimatingRef.current) return;
-
-        if (isOpenRef.current) {
-            closeDoor();
-            return;
-        }
+    const closeDoor = useCallback(() => {
+        if (!doorRef.current || !isOpenRef.current) return;
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
 
         isAnimatingRef.current = true;
-
-        const doorWorldPos = new THREE.Vector3();
-        frameRef.current.getWorldPosition(doorWorldPos);
-
-        const cameraTargetZ = doorWorldPos.z + 2.5;
-        const cameraTargetX = side === 'left' ? -0.3 : 0.3;
-
-        gsap.to(camera.position, {
-            x: cameraTargetX,
-            z: cameraTargetZ,
-            duration: 1.0,
-            ease: 'power2.inOut',
-            onComplete: () => openDoor()
+        gsap.to(doorRef.current.rotation, {
+            y: 0,
+            duration: 0.6,
+            ease: 'power2.in',
+            onComplete: () => {
+                isOpenRef.current = false;
+                isAnimatingRef.current = false;
+            }
         });
-    }, [camera, side, openDoor, closeDoor]);
+    }, []);
 
     const openDoor = useCallback(() => {
         if (!doorRef.current) return;
@@ -124,23 +104,33 @@ const Door = ({
                 closeTimerRef.current = setTimeout(() => closeDoor(), autoCloseDelay);
             }
         });
-    }, [side, onEnter, autoCloseDelay]);
+    }, [side, onEnter, autoCloseDelay, isMuted, globalVolume, closeDoor]);
 
-    const closeDoor = useCallback(() => {
-        if (!doorRef.current || !isOpenRef.current) return;
-        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    const handleClick = useCallback((e) => {
+        e.stopPropagation();
+        if (isAnimatingRef.current) return;
+
+        if (isOpenRef.current) {
+            closeDoor();
+            return;
+        }
 
         isAnimatingRef.current = true;
-        gsap.to(doorRef.current.rotation, {
-            y: 0,
-            duration: 0.6,
-            ease: 'power2.in',
-            onComplete: () => {
-                isOpenRef.current = false;
-                isAnimatingRef.current = false;
-            }
+
+        const doorWorldPos = new THREE.Vector3();
+        frameRef.current.getWorldPosition(doorWorldPos);
+
+        const cameraTargetZ = doorWorldPos.z + 2.5;
+        const cameraTargetX = side === 'left' ? -0.3 : 0.3;
+
+        gsap.to(camera.position, {
+            x: cameraTargetX,
+            z: cameraTargetZ,
+            duration: 1.0,
+            ease: 'power2.inOut',
+            onComplete: () => openDoor()
         });
-    }, []);
+    }, [camera, side, openDoor, closeDoor]);
 
     useFrame(() => {
         if (doorRef.current && !isOpenRef.current && !isAnimatingRef.current) {
@@ -205,12 +195,12 @@ const Door = ({
             </group>
 
             {/* Outline Glow (always visible but fades based on distance) */}
-            <mesh position={[0, -0.2, -0.05]} rotation={[0, Math.PI, 0]}>
+            <mesh ref={glowRef} position={[0, -0.2, -0.05]} rotation={[0, Math.PI, 0]}>
                 <planeGeometry args={[doorWidth + 0.3, doorHeight + 0.3]} />
                 <meshBasicMaterial
                     color="#e0e0e0"
                     transparent={true}
-                    opacity={glowIntensity} // Dynamic opacity based on proximity
+                    opacity={0.1} // Dynamic opacity based on proximity
                     depthWrite={false}
                 />
             </mesh>

@@ -94,8 +94,6 @@ export const CORRIDOR_TEXTURES = [
 
 // Standard HTML Image assets (preloaded via new Image() in App.jsx)
 export const IMAGE_ASSETS = [
-    '/images/avatar-thinking.webp',
-    '/images/avatar-hero.webp',
     '/images/ink-splash.webp',
     '/images/map.webp',
     '/images/map_about_painted.webp',
@@ -305,9 +303,6 @@ export const PRELOAD_LOADER = [
  * @returns {string[]} The filtered list
  */
 export const filterTexturesByDevice = (list, usePainted) => {
-    // 1. Identify all paths that have a _painted version available
-    const paintedVersions = new Set(list.filter(p => p.includes('_painted.webp')));
-    
     // Also include the special css3logo case
     const hasCss3Painted = list.some(p => p.includes('css3logo_painted.webp'));
     
@@ -315,16 +310,9 @@ export const filterTexturesByDevice = (list, usePainted) => {
         const isPainted = path.includes('_painted.webp');
         const isCss3 = path.includes('css3logo_painted.webp');
         
-        // Find the "standard" version for this path if it's a painted one
-        let standardVersion = null;
-        if (isPainted) {
-            standardVersion = path.replace('_painted.webp', '.webp');
-        } else if (isCss3) {
-            standardVersion = path.replace('css3logo_painted.webp', 'csslogo.webp');
-        } else {
+        if (!isPainted && !isCss3) {
             // Check if this standard path HAS a painted version in the list
             const pVersion = path.replace('.webp', '_painted.webp');
-            const css3Version = path.replace('csslogo.webp', 'css3logo_painted.webp');
             if (list.includes(pVersion) || (path.includes('csslogo.webp') && hasCss3Painted)) {
                 // Return true to keep the standard version! Both desktop and mobile need it.
                 return true; 

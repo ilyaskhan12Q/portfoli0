@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unknown-property */
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useTexture, Html, useCursor } from '@react-three/drei';
@@ -173,7 +172,7 @@ const MessagePaper = ({ position = [0, 0.05, 2], onSend }) => {
     const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
     // Form validation
-    const validateForm = () => {
+    const validateForm = useCallback(() => {
         const newErrors = {};
         if (!email.trim()) newErrors.email = 'Email required';
         else if (!isValidEmail(email)) newErrors.email = 'Invalid email format';
@@ -181,7 +180,7 @@ const MessagePaper = ({ position = [0, 0.05, 2], onSend }) => {
         if (!message.trim()) newErrors.message = 'Message required';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    };
+    }, [email, subject, message]);
 
     // Load textures
     const paperTexture = useTexture('/textures/contact/paper_form.webp');
@@ -264,8 +263,8 @@ const MessagePaper = ({ position = [0, 0.05, 2], onSend }) => {
             } else {
                 throw new Error(result.message || 'Failed to send');
             }
-        } catch (error) {
-            // console.error('❌ Send failed:', error);
+        } catch {
+            // console.error('❌ Send failed:');
             setSubmitStatus('error');
         } finally {
             setIsSubmitting(false);
@@ -333,7 +332,7 @@ const MessagePaper = ({ position = [0, 0.05, 2], onSend }) => {
 
     // Store original vertex positions for fold animation
     // Paper animation (flutter)
-    useFrame((state, delta) => {
+    useFrame((state) => {
         if (!paperRef.current) return;
 
         const time = state.clock.getElapsedTime();

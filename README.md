@@ -13,8 +13,7 @@
 Welcome to the open-source repository of **Ilyas Khan's** interactive 3D Web Developer & AI/ML Portfolio. This project pushes the limits of modern web technologies by blending spatial WebGL computing, complex React ecosystems, and highly optimized frontend engineering.
 
 > [!TIP]
-> **Live Site:** [https://ilyaskhan12Q.github.io/portfoli0/](https://ilyaskhan12Q.github.io/portfoli0/)
-> 
+> **Live Site:** [https://portfoli0-olive.vercel.app/](https://portfoli0-olive.vercel.app/) (Alternative: [GitHub Pages](https://ilyaskhan12Q.github.io/portfoli0/))
 > **Interactive Resume:** Check out the fully customized [Ilyas_Khan_Resume.docx](file:///home/ilyaskhan/portfolio-itom/Ilyas_Khan_Resume.docx) in the root directory, featuring interactive hyperlinks to live projects and matching the timeline represented in this 3D experience.
 
 > [!NOTE]

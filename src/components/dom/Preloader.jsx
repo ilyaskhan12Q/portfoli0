@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { useAudio } from '../../context/AudioManager';
@@ -126,9 +126,7 @@ const Preloader = ({ onComplete, ready }) => {
       setRealProgress(100);
       setActive(false);
       
-      const loadEnd = performance.now();
-      const loadDuration = ((loadEnd - loadStartTime.current) / 1000).toFixed(2);
-      // console.info(`📦 Assets Loaded: ${loadDuration}s`);
+      // console.info(`📦 Assets Loaded`);
       
       origOnLoad?.();
     };
@@ -144,8 +142,7 @@ const Preloader = ({ onComplete, ready }) => {
   // Track audio handle to stop loop
   const pencilSoundRef = useRef(null);
 
-  // Performance Tracking
-  const loadStartTime = useRef(performance.now());
+
 
   // Use refs for animation targets
   const containerRef = useRef(null);
@@ -221,8 +218,54 @@ const Preloader = ({ onComplete, ready }) => {
     setTargetProgress(prev => Math.max(prev, newTarget));
   }, [realProgress, active, ready]);
 
+  // ----------------------------------------
+  // EXIT SEQUENCE
+  // ----------------------------------------
+  const exitStarted = useRef(false);
+
+  const startExit = useCallback(() => {
+    exitStarted.current = true;
+
+    if (pencilSoundRef.current) {
+      pencilSoundRef.current.stop();
+      pencilSoundRef.current = null;
+    }
+    play('tear', { volume: 0.8 });
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        setIsDone(true);
+        onComplete?.();
+      }
+    });
+
+    // 1. Quick pause before tear
+    tl.to({}, { duration: 0.1 });
+
+    // 2. Tear Apart
+    tl.to(leftHalfRef.current, {
+      xPercent: -100,
+      rotation: -2,
+      duration: 1.8,
+      ease: "power3.inOut"
+    }, 'tear');
+
+    tl.to(rightHalfRef.current, {
+      xPercent: 100,
+      rotation: 2,
+      duration: 1.8,
+      ease: "power3.inOut"
+    }, 'tear');
+
+    // 3. Fade container
+    tl.to(containerRef.current, {
+      opacity: 0,
+      duration: 0.5
+    }, '-=0.5');
+  }, [play, onComplete]);
+
   // Handle Pencil Sound & Exit checking dynamically
-  const checkProgressTriggers = (val) => {
+  const checkProgressTriggers = useCallback((val) => {
     // Pencil Sound
     if (val < 99 && !pencilSoundRef.current) {
       pencilSoundRef.current = play('pencil', { loop: true, volume: 0.5 });
@@ -237,7 +280,7 @@ const Preloader = ({ onComplete, ready }) => {
       exitStarted.current = true;
       startExit();
     }
-  };
+  }, [play, startExit]);
 
   useEffect(() => {
     return () => {
@@ -285,13 +328,7 @@ const Preloader = ({ onComplete, ready }) => {
       }
     });
 
-  }, [targetProgress]);
-
-
-  // ----------------------------------------
-  // EXIT SEQUENCE
-  // ----------------------------------------
-  const exitStarted = useRef(false);
+  }, [targetProgress, checkProgressTriggers]);
 
   // Fallback trigger if ready becomes true AFTER 99.5% reached
   useEffect(() => {
@@ -299,56 +336,7 @@ const Preloader = ({ onComplete, ready }) => {
       exitStarted.current = true;
       startExit();
     }
-  }, [ready]);
-
-  const startExit = () => {
-    exitStarted.current = true;
-
-    if (pencilSoundRef.current) {
-      pencilSoundRef.current.stop();
-      pencilSoundRef.current = null;
-    }
-    play('tear', { volume: 0.8 });
-
-    const tl = gsap.timeline({
-      onComplete: () => {
-        setIsDone(true);
-        
-        const exitEnd = performance.now();
-        const totalDuration = ((exitEnd - loadStartTime.current) / 1000).toFixed(2);
-        // console.group("⏱️ Portfolio Loading Performance");
-        // console.log(`- Start: %c${loadStartTime.current.toFixed(0)}ms`, "color: #888");
-        // console.log(`- Total Duration: %c${totalDuration}s`, "color: #00ff00; font-weight: bold;");
-        // console.groupEnd();
-        
-        onComplete?.();
-      }
-    });
-
-    // 1. Quick pause before tear
-    tl.to({}, { duration: 0.1 });
-
-    // 2. Tear Apart
-    tl.to(leftHalfRef.current, {
-      xPercent: -100,
-      rotation: -2,
-      duration: 1.8,
-      ease: "power3.inOut"
-    }, 'tear');
-
-    tl.to(rightHalfRef.current, {
-      xPercent: 100,
-      rotation: 2,
-      duration: 1.8,
-      ease: "power3.inOut"
-    }, 'tear');
-
-    // 3. Fade container
-    tl.to(containerRef.current, {
-      opacity: 0,
-      duration: 0.5
-    }, '-=0.5');
-  };
+  }, [ready, startExit]);
 
   if (isDone) return null;
 

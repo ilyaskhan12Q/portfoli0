@@ -12,7 +12,6 @@ import { useTexture } from '@react-three/drei';
  */
 const EmptyCorridor = ({ camera }) => {
     const corridorWidth = 25; // Wide floor
-    const corridorHeight = 3.5; // Standard height for floor level calculation
     const [segmentBase, setSegmentBase] = useState(0);
 
     // Load floor texture
@@ -46,7 +45,6 @@ const EmptyCorridor = ({ camera }) => {
                     key={zStart}
                     zStart={zStart}
                     corridorWidth={corridorWidth}
-                    corridorHeight={corridorHeight}
                     floorTexture={floorTexture}
                 />
             ))}
@@ -57,7 +55,7 @@ const EmptyCorridor = ({ camera }) => {
 /**
  * Single empty corridor segment
  */
-const CorridorSegmentEmpty = ({ zStart, corridorWidth, corridorHeight, floorTexture }) => {
+const CorridorSegmentEmpty = ({ zStart, corridorWidth, floorTexture }) => {
     const length = 40;
     const zCenter = zStart - length / 2;
 
