@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 const AudioContext = createContext({
@@ -76,15 +77,23 @@ export const AudioProvider = ({ children }) => {
     }, [audioEnabled]);
 
     const play = useCallback((soundName, { loop = false, volume = 1.0 } = {}) => {
+        if (soundName === 'pencil') {
+            return {
+                stop: () => {},
+                fade: () => {}
+            };
+        }
+
         // Graceful degradation if files missing
         const soundPaths = {
             'szumwiatru': '/sounds/szumwiatru.mp3', // Szum wiatru w pokoju About
             'szummiasta': '/sounds/szummiasta.mp3', // Szum miasta w pokoju The Gallery
             'uchyleniedrzwi': '/sounds/uchyleniedrzwi.mp3', // Skrzypienie przy najechaniu
             'otwarciedrzwi': '/sounds/otwarciedrzwi.mp3',   // Otwarcie głównych/bocznych drzwi
-            'zamknieciedrzwi': '/sounds/zamknieciedrzwi.mp3' // Zamykanie drzwi
+            'zamknieciedrzwi': '/sounds/zamknieciedrzwi.mp3', // Zamykanie drzwi
+            'tear': '/sounds/papersound.mp3' // Paper tearing sound
         };
-               const path = soundPaths[soundName] || `/sounds/${soundName}.mp3`;
+        const path = soundPaths[soundName] || `/sounds/${soundName}.mp3`;
 
         // Resolve path with base URL for GitHub Pages
         const base = import.meta.env.BASE_URL || '/';
@@ -136,7 +145,7 @@ export const AudioProvider = ({ children }) => {
                 audio.currentTime = 0;
                 delete activeSounds.current[soundName];
             },
-            fade: (duration = 1000) => {
+            fade: () => {
                 // For now just stop
                 audio.pause();
                 delete activeSounds.current[soundName];

@@ -23,7 +23,7 @@ async function scan(dir) {
         if (!isPowerOfTwo(width) || !isPowerOfTwo(height)) {
           console.log(`NPOT: ${fullPath} - ${width}x${height}`);
         }
-      } catch (err) {
+      } catch {
         // console.error(`Error processing ${fullPath}: ${err.message}`);
       }
     }

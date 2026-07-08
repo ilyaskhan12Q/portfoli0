@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
@@ -103,10 +103,6 @@ const CorridorWalls = ({ zStart = 10, length = 80, doorPositions = [], zClip = 1
     // We only render from Math.min(zStart, zClip) down to (zStart - length)
     const effectiveStart = Math.min(zStart, zClip);
     const effectiveLength = effectiveStart - (zStart - length);
-    const zCenter = effectiveStart - effectiveLength / 2;
-
-    // If fully clipped, render nothing
-    if (effectiveLength <= 0) return null;
 
     // =============================================
     // REGULACJA PRZYCIĘCIA LISTWY PRZY DRZWIACH
@@ -117,7 +113,7 @@ const CorridorWalls = ({ zStart = 10, length = 80, doorPositions = [], zClip = 1
     const BASEBOARD_DOOR_MARGIN = 0.5;
 
     // Helper to generate wall segments for a side ('left' or 'right')
-    const generateWallSegments = (side) => {
+    const generateWallSegments = useCallback((side) => {
         const segments = [];
         const isLeft = side === 'left';
         const baseX = isLeft ? -WALL_X_OUTER : WALL_X_OUTER;
@@ -177,8 +173,7 @@ const CorridorWalls = ({ zStart = 10, length = 80, doorPositions = [], zClip = 1
             const dx = innerX - baseX;
             const dz = doorEndZ - doorStartZ; // Negative (-4)
             const dist = Math.sqrt(dx * dx + dz * dz);
-            const angle = Math.atan2(dx, dz); // Angle relative to Z axis?
-            // atan2(dx, dz). Left: dx = 1.8, dz = -4. Angle ~ 155 deg.
+            // Left: dx = 1.8, dz = -4. Angle ~ 155 deg.
             // Standard wall normal is 90 deg.
             // We want rotation around Y.
             // Center of segment:
@@ -257,10 +252,13 @@ const CorridorWalls = ({ zStart = 10, length = 80, doorPositions = [], zClip = 1
         }
 
         return segments;
-    };
+    }, [effectiveStart, effectiveLength, doorPositions, zStart]);
 
-    const leftSegments = useMemo(() => generateWallSegments('left'), [effectiveStart, effectiveLength, doorPositions]);
-    const rightSegments = useMemo(() => generateWallSegments('right'), [effectiveStart, effectiveLength, doorPositions]);
+    const leftSegments = useMemo(() => generateWallSegments('left'), [generateWallSegments]);
+    const rightSegments = useMemo(() => generateWallSegments('right'), [generateWallSegments]);
+
+    // If fully clipped, render nothing
+    if (effectiveLength <= 0) return null;
 
     return (
         <group>

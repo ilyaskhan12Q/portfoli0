@@ -19,6 +19,8 @@ const ROOM_CONFIG = {
     roomDepth: 25
 };
 
+const { corridorWidth, corridorHeight, corridorDepth, roomWidth, roomHeight, roomDepth } = ROOM_CONFIG;
+
 const SUBTITLES = {
     'THE GALLERY': 'Explore my creative projects',
     'THE STUDIO': 'Watch behind the scenes',
@@ -36,7 +38,6 @@ const NATURAL_TILE_W = (1582 / 94) * 0.15;
  * Contains corridor + giant room at the end.
  */
 const RoomInterior = memo(({ label, showRoom, onReady, isExiting }) => {
-    const { corridorWidth, corridorHeight, corridorDepth, roomWidth, roomHeight, roomDepth } = ROOM_CONFIG;
     const halfDepth = corridorDepth / 2;
     const roomZ = -corridorDepth - roomDepth / 2;
 

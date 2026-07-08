@@ -22,8 +22,8 @@ const PIN_START_POSITION = { x: 50.5, y: 97 };
 
 const NavigationUI = () => {
     const { currentRoom, isInRoom, requestExit, hasEntered, teleportTo, isTeleporting } = useScene();
-    const { isMuted, toggleMute, globalVolume, setGlobalVolume } = useAudio();
-    const { showTutorial, unlockAchievement } = useAchievements();
+    const { isMuted, globalVolume, setGlobalVolume } = useAudio();
+    const { showTutorial } = useAchievements();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [hoveredRoom, setHoveredRoom] = useState(null);
     const [isExiting, setIsExiting] = useState(false); // Track when back button is clicked
@@ -51,18 +51,16 @@ const NavigationUI = () => {
         return () => window.removeEventListener('inspectChange', handleInspectChange);
     }, []);
 
-    const paintedMapsRefs = {
-        about: useRef(),
-        gallery: useRef(),
-        contact: useRef(),
-        studio: useRef()
-    };
+    const aboutRef = useRef();
+    const galleryRef = useRef();
+    const contactRef = useRef();
+    const studioRef = useRef();
 
     useEffect(() => {
         // About (zone: left 10%, top 20%, width 30%, height 35%)
         // -> X: 10% to 40%, Y: 20% to 55%
-        if (paintedMapsRefs.about.current) {
-            gsap.to(paintedMapsRefs.about.current, {
+        if (aboutRef.current) {
+            gsap.to(aboutRef.current, {
                 clipPath: (hoveredRoom === 'about' || currentRoom === 'about')
                     ? 'polygon(10% 20%, 40% 20%, 40% 55%, 10% 55%)'
                     : 'polygon(10% 20%, 10% 20%, 10% 55%, 10% 55%)',
@@ -73,8 +71,8 @@ const NavigationUI = () => {
 
         // Gallery (zone: left 10%, bottom 8%, width 30%, height 35%)
         // -> X: 10% to 40%, Y: 57% to 92% (since bottom=8% means top is 100-8-35=57%)
-        if (paintedMapsRefs.gallery.current) {
-            gsap.to(paintedMapsRefs.gallery.current, {
+        if (galleryRef.current) {
+            gsap.to(galleryRef.current, {
                 clipPath: (hoveredRoom === 'gallery' || currentRoom === 'gallery')
                     ? 'polygon(10% 57%, 40% 57%, 40% 92%, 10% 92%)'
                     : 'polygon(10% 57%, 10% 57%, 10% 92%, 10% 92%)',
@@ -85,8 +83,8 @@ const NavigationUI = () => {
 
         // Contact (zone: right 5%, top 10%, width 35%, height 25%)
         // -> X: 60% to 95% (since right=5% means left is 100-5-35=60%), Y: 10% to 35%
-        if (paintedMapsRefs.contact.current) {
-            gsap.to(paintedMapsRefs.contact.current, {
+        if (contactRef.current) {
+            gsap.to(contactRef.current, {
                 clipPath: (hoveredRoom === 'contact' || currentRoom === 'contact')
                     ? 'polygon(60% 10%, 95% 10%, 95% 35%, 60% 35%)'
                     : 'polygon(95% 10%, 95% 10%, 95% 35%, 95% 35%)',
@@ -97,8 +95,8 @@ const NavigationUI = () => {
 
         // Studio (zone: right 15%, bottom 19%, width 25%, height 40%)
         // -> X: 60% to 85% (since right=15% means left is 100-15-25=60%), Y: 41% to 81% (since bottom=19% means top is 100-19-40=41%)
-        if (paintedMapsRefs.studio.current) {
-            gsap.to(paintedMapsRefs.studio.current, {
+        if (studioRef.current) {
+            gsap.to(studioRef.current, {
                 clipPath: (hoveredRoom === 'studio' || currentRoom === 'studio')
                     ? 'polygon(60% 41%, 85% 41%, 85% 81%, 60% 81%)'
                     : 'polygon(85% 41%, 85% 41%, 85% 81%, 85% 81%)',
@@ -106,7 +104,7 @@ const NavigationUI = () => {
                 ease: "power2.out"
             });
         }
-    }, [hoveredRoom, currentRoom]);
+    }, [hoveredRoom, currentRoom, aboutRef, galleryRef, contactRef, studioRef]);
 
     useEffect(() => {
         setBgmVol(getMusicVolume());
@@ -334,10 +332,10 @@ const NavigationUI = () => {
                             <img src="/images/map.webp" alt="Portfolio Map" className="map-image" />
 
                             {/* Painted Map Overlays */}
-                            <img ref={paintedMapsRefs.about} src="/images/map_about_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(10% 20%, 10% 20%, 10% 55%, 10% 55%)' }} />
-                            <img ref={paintedMapsRefs.gallery} src="/images/map_gallery_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(10% 57%, 10% 57%, 10% 92%, 10% 92%)' }} />
-                            <img ref={paintedMapsRefs.contact} src="/images/map_contact_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(95% 10%, 95% 10%, 95% 35%, 95% 35%)' }} />
-                            <img ref={paintedMapsRefs.studio} src="/images/map_studio_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(85% 41%, 85% 41%, 85% 81%, 85% 81%)' }} />
+                            <img ref={aboutRef} src="/images/map_about_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(10% 20%, 10% 20%, 10% 55%, 10% 55%)' }} />
+                            <img ref={galleryRef} src="/images/map_gallery_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(10% 57%, 10% 57%, 10% 92%, 10% 92%)' }} />
+                            <img ref={contactRef} src="/images/map_contact_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(95% 10%, 95% 10%, 95% 35%, 95% 35%)' }} />
+                            <img ref={studioRef} src="/images/map_studio_painted.webp" alt="" className="painted-map-layer" style={{ clipPath: 'polygon(85% 41%, 85% 41%, 85% 81%, 85% 81%)' }} />
 
                             {/* Hover Zones — 4 quadrants covering the map */}
                             <button

@@ -37,9 +37,7 @@ const EntranceDoors = ({
     const rightHandlePaintedRef = useRef(); // Painted handle mesh visibility
     const groupRef = useRef();
     const [isOpen, setIsOpen] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
-    const [isWindowHovered, setIsWindowHovered] = useState(false);
     const windowAvatarRef = useRef();
     const { camera } = useThree();
     const { unlockAchievement } = useAchievements();
@@ -91,7 +89,6 @@ const EntranceDoors = ({
 
     // Bug Click Animation State
     const [isBugClicked, setIsBugClicked] = useState(false);
-    const [textVisible, setTextVisible] = useState(false);
     const [clipProgress, setClipProgress] = useState(0); // 0-1 for pencil drawing reveal
     const inkSplashRef = useRef();
     const handleHideDelayRef = useRef(); // Track pending gsap.delayedCall for handle visibility
@@ -151,7 +148,6 @@ const EntranceDoors = ({
         }
 
         // Pencil drawing effect - smooth reveal from left to right
-        setTextVisible(true);
         setClipProgress(0);
 
         if (bugFixedTextRef.current) {
@@ -310,7 +306,6 @@ const EntranceDoors = ({
     // Handle hover - doors slightly open to indicate interactivity
     const handlePointerEnter = () => {
         if (isOpen || isAnimating || isMobile) return;
-        setIsHovered(true);
         document.body.style.cursor = "pointer";
 
         // Slightly open doors on hover
@@ -386,7 +381,6 @@ const EntranceDoors = ({
 
     const handlePointerLeave = () => {
         if (isOpen || isAnimating || isMobile) return;
-        setIsHovered(false);
         document.body.style.cursor = "auto";
 
         // Close doors back
@@ -521,7 +515,6 @@ const EntranceDoors = ({
     // Helper for window hover
     const handleWindowEnter = (e) => {
         e.stopPropagation();
-        setIsWindowHovered(true);
         document.body.style.cursor = "pointer";
 
         if (windowAvatarRef.current) {
@@ -542,7 +535,6 @@ const EntranceDoors = ({
 
     const handleWindowLeave = (e) => {
         e.stopPropagation();
-        setIsWindowHovered(false);
         document.body.style.cursor = "auto";
 
         if (windowAvatarRef.current) {

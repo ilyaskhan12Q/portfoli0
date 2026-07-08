@@ -1,5 +1,5 @@
-import { useState, Suspense, useEffect, useCallback, useLayoutEffect, lazy } from 'react';
-import { Canvas, useThree, useFrame, useLoader } from '@react-three/fiber';
+import { useState, Suspense, useEffect, useCallback, lazy } from 'react';
+import { Canvas, useThree, useLoader } from '@react-three/fiber';
 import { Preload, useTexture, Text, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
 

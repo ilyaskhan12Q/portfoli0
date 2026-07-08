@@ -66,6 +66,40 @@ const useInfiniteCamera = ({
     // Store last known mouse position (normalized -1 to 1)
     const lastMousePos = useRef({ x: 0, y: 0 });
 
+    // Helper to calculate glance based on Z position
+    const calculateGlance = useCallback((z, segment) => {
+        const zOffset = 10 - (segment * segmentLength);
+        let bestStrength = 0;
+        let bestDir = 0;
+
+        const START_DIST = 15;
+        const PEAK_DIST = 8;
+        const END_DIST = -2;
+
+        for (const door of DOOR_POSITIONS) {
+            const doorGlobalZ = zOffset + door.z;
+            const dist = z - doorGlobalZ;
+
+            let strength = 0;
+            if (dist > PEAK_DIST && dist < START_DIST) {
+                strength = (START_DIST - dist) / (START_DIST - PEAK_DIST);
+            } else if (dist <= PEAK_DIST && dist > END_DIST) {
+                strength = (dist - END_DIST) / (PEAK_DIST - END_DIST);
+            }
+
+            if (strength > 0) {
+                const easedStrength = strength * (2 - strength);
+                const dir = door.side === 'left' ? -1 : 1;
+                if (easedStrength > bestStrength) {
+                    bestStrength = easedStrength;
+                    bestDir = dir;
+                }
+            }
+        }
+
+        return bestDir * bestStrength * glanceIntensity * 3.5;
+    }, [segmentLength, glanceIntensity]);
+
     // Update enabled refs
     useLayoutEffect(() => {
         const wasScrollEnabled = scrollEnabledRef.current;
@@ -115,7 +149,7 @@ const useInfiniteCamera = ({
             // Recalculate segment
             currentSegment.current = Math.floor((10 - currentZ.current) / segmentLength);
         }
-    }, [scrollEnabled, parallaxEnabled, camera, parallaxIntensity]);
+    }, [scrollEnabled, parallaxEnabled, camera, parallaxIntensity, calculateGlance, segmentLength]);
 
     // Handle wheel scroll (desktop)
     const handleWheel = useCallback((e) => {
@@ -207,7 +241,7 @@ const useInfiniteCamera = ({
 
         touchStart.current.x = currentX;
         touchStart.current.y = currentY;
-    }, [scrollSpeed, MAX_SWIPE_GLANCE]);
+    }, [scrollSpeed, MAX_SWIPE_GLANCE, unlockAchievement]);
 
     // Handle device orientation (gyroscope for mobile parallax)
     const handleDeviceOrientation = useCallback((e) => {
@@ -239,7 +273,7 @@ const useInfiniteCamera = ({
                     useGyroscope.current = true;
                     window.addEventListener('deviceorientation', handleDeviceOrientation);
                 }
-            } catch (error) {
+            } catch {
                 // console.log('Gyroscope permission denied');
             }
         } else {
@@ -387,40 +421,6 @@ const useInfiniteCamera = ({
             camera.lookAt(lookX, 0.13 + parallax.current.y, camera.position.z - 10);
         }
     });
-
-    // Helper to calculate glance based on Z position
-    const calculateGlance = useCallback((z, segment) => {
-        const zOffset = 10 - (segment * segmentLength);
-        let bestStrength = 0;
-        let bestDir = 0;
-
-        const START_DIST = 15;
-        const PEAK_DIST = 8;
-        const END_DIST = -2;
-
-        for (const door of DOOR_POSITIONS) {
-            const doorGlobalZ = zOffset + door.z;
-            const dist = z - doorGlobalZ;
-
-            let strength = 0;
-            if (dist > PEAK_DIST && dist < START_DIST) {
-                strength = (START_DIST - dist) / (START_DIST - PEAK_DIST);
-            } else if (dist <= PEAK_DIST && dist > END_DIST) {
-                strength = (dist - END_DIST) / (PEAK_DIST - END_DIST);
-            }
-
-            if (strength > 0) {
-                const easedStrength = strength * (2 - strength);
-                const dir = door.side === 'left' ? -1 : 1;
-                if (easedStrength > bestStrength) {
-                    bestStrength = easedStrength;
-                    bestDir = dir;
-                }
-            }
-        }
-
-        return bestDir * bestStrength * glanceIntensity * 3.5;
-    }, [segmentLength, glanceIntensity]);
 
     // Function to enable/disable camera override
     const setCameraOverride = useCallback((active) => {

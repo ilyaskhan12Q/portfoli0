@@ -14,16 +14,16 @@ const CLOUD_TEXTURES = [
     '/textures/clouds/f6e358bc-d27c-41dd-95f4-6787a835c41e.webp',
 ];
 
+// Movement boundaries - must match StaticCloud
+const START_X = 40;
+const END_X = -40;
+const TOTAL_DISTANCE = START_X - END_X;
+
 /**
  * GalleryClouds Component
  * Static clouds scattered randomly above the gallery room
  */
 const GalleryClouds = ({ count = 12, seed = 42, rotationOffset = [0, -Math.PI / 3, 0] }) => {
-    // Movement boundaries - must match StaticCloud
-    const startX = 40;
-    const endX = -40;
-    const totalDistance = startX - endX;
-
     const clouds = useMemo(() => {
         const items = [];
         const random = seededRandom(seed);
@@ -35,10 +35,10 @@ const GalleryClouds = ({ count = 12, seed = 42, rotationOffset = [0, -Math.PI / 
 
             // Równomierny offset dla każdej chmury - rozłożone po całej szerokości
             // Każda chmura startuje w innym miejscu na osi X
-            const initialOffset = (i / count) * totalDistance + random() * 3;
+            const initialOffset = (i / count) * TOTAL_DISTANCE + random() * 3;
 
             // Oblicz początkową pozycję X jakby chmura już była w ruchu
-            const initialX = startX - (initialOffset % (totalDistance + 10)) + 5;
+            const initialX = START_X - (initialOffset % (TOTAL_DISTANCE + 10)) + 5;
 
             items.push({
                 id: i,
